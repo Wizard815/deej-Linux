@@ -6,3 +6,9 @@ type SessionFinder interface {
 
 	Release() error
 }
+
+// sessionChangeNotifier is optionally implemented by session finders that can tell when audio sessions
+// or devices come and go, so that new sessions pick up their slider's volume without having to wait for a refresh
+type sessionChangeNotifier interface {
+	SessionChanges() <-chan struct{}
+}

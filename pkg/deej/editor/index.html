@@ -1,0 +1,1130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<title>deej slider editor</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%235b8cff'/%3E%3Cstop offset='1' stop-color='%23a35bff'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='16' fill='url(%23g)'/%3E%3Cg stroke='white' stroke-width='4' stroke-linecap='round'%3E%3Cpath d='M20 14v36M32 14v36M44 14v36'/%3E%3C/g%3E%3Cg fill='white'%3E%3Ccircle cx='20' cy='38' r='6'/%3E%3Ccircle cx='32' cy='24' r='6'/%3E%3Ccircle cx='44' cy='32' r='6'/%3E%3C/g%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #0f1117;
+    --bg-raised: #171a23;
+    --bg-card: #1b1f2a;
+    --bg-hover: #242938;
+    --border: #2a3040;
+    --text: #e8eaf2;
+    --text-dim: #9aa1b5;
+    --text-faint: #6b7286;
+    --accent: #7c6cff;
+    --accent-2: #5b8cff;
+    --accent-grad: linear-gradient(135deg, #5b8cff, #a35bff);
+    --ok: #3ecf8e;
+    --warn: #f5b84a;
+    --bad: #ff6b6b;
+    --track: #262b39;
+    --shadow: 0 10px 30px rgba(0, 0, 0, .35);
+    --radius: 14px;
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f4f5fa;
+      --bg-raised: #ffffff;
+      --bg-card: #ffffff;
+      --bg-hover: #eef0f7;
+      --border: #e1e4ee;
+      --text: #1b1e28;
+      --text-dim: #5a6075;
+      --text-faint: #8a90a3;
+      --track: #e6e8f1;
+      --shadow: 0 10px 30px rgba(30, 35, 60, .12);
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  [hidden] { display: none !important; }
+
+  html, body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, Cantarell, "Noto Sans", sans-serif;
+  }
+
+  button, input, select { font: inherit; color: inherit; }
+
+  button { cursor: pointer; }
+
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 28px;
+    background: color-mix(in srgb, var(--bg) 85%, transparent);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand svg { width: 34px; height: 34px; flex: none; }
+  .brand-name { font-size: 20px; font-weight: 700; letter-spacing: -.02em; }
+  .brand-sub { color: var(--text-dim); font-size: 14px; }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--bg-raised);
+    color: var(--text-dim);
+    font-size: 13px;
+    max-width: 60vw;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-faint); flex: none; }
+  .dot.ok { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 25%, transparent); }
+  .dot.warn { background: var(--warn); }
+  .dot.bad { background: var(--bad); }
+
+  main { max-width: 1240px; margin: 0 auto; padding: 28px 28px 120px; }
+
+  .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin: 8px 0 16px; }
+  h2 { margin: 0; font-size: 18px; letter-spacing: -.01em; }
+  .section-head p { margin: 0; color: var(--text-dim); font-size: 14px; }
+
+  .slider-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 40px;
+  }
+
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+  }
+
+  .slider-card { display: flex; flex-direction: column; gap: 14px; min-height: 340px; }
+
+  .slider-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .slider-title { font-weight: 650; }
+  .slider-index { color: var(--text-faint); font-size: 12px; font-variant-numeric: tabular-nums; }
+
+  .icon-btn {
+    display: inline-grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-faint);
+  }
+  .icon-btn:hover { background: var(--bg-hover); color: var(--text); }
+  .icon-btn svg { width: 16px; height: 16px; }
+
+  .meter-row { display: flex; align-items: center; gap: 16px; }
+
+  .meter {
+    position: relative;
+    width: 34px;
+    height: 132px;
+    border-radius: 10px;
+    background: var(--track);
+    overflow: hidden;
+    flex: none;
+  }
+
+  .meter-fill {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 0;
+    background: var(--accent-grad);
+    transition: height .12s ease-out;
+  }
+
+  .meter.idle .meter-fill { background: var(--text-faint); opacity: .35; }
+
+  .meter-knob {
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    height: 6px;
+    border-radius: 3px;
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, .4);
+    bottom: 0;
+    transform: translateY(50%);
+    transition: bottom .12s ease-out;
+  }
+
+  .meter-readout { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .meter-value { font-size: 34px; font-weight: 700; letter-spacing: -.03em; font-variant-numeric: tabular-nums; line-height: 1; }
+  .meter-value small { font-size: 16px; color: var(--text-dim); font-weight: 600; margin-left: 2px; }
+  .meter-raw { color: var(--text-faint); font-size: 12px; font-variant-numeric: tabular-nums; }
+
+  .targets { display: flex; flex-direction: column; gap: 6px; flex: 1; }
+
+  .chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 6px 6px 10px;
+    border-radius: 10px;
+    background: var(--bg-hover);
+    border: 1px solid transparent;
+    min-width: 0;
+  }
+
+  .chip-icon { width: 16px; height: 16px; flex: none; color: var(--accent); }
+  .chip-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+  .chip-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 14px; }
+  .chip-detail { color: var(--text-faint); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chip .icon-btn { width: 24px; height: 24px; }
+  .chip.inactive .chip-label { color: var(--text-dim); }
+
+  .empty-targets { color: var(--text-faint); font-size: 14px; padding: 6px 2px; }
+
+  .add-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px;
+    border-radius: 10px;
+    border: 1px dashed var(--border);
+    background: transparent;
+    color: var(--text-dim);
+    font-size: 14px;
+  }
+  .add-btn:hover { border-color: var(--accent); color: var(--text); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+  .add-btn svg { width: 14px; height: 14px; }
+
+  .add-slider-card {
+    display: grid;
+    place-items: center;
+    min-height: 140px;
+    border: 1px dashed var(--border);
+    background: transparent;
+    color: var(--text-dim);
+    border-radius: var(--radius);
+  }
+  .add-slider-card:hover { border-color: var(--accent); color: var(--text); }
+  .add-slider-card span { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .add-slider-card svg { width: 22px; height: 22px; }
+
+  .settings { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+  .setting { display: flex; flex-direction: column; gap: 8px; }
+  .setting-label { font-weight: 600; font-size: 14px; }
+  .setting-hint { color: var(--text-faint); font-size: 13px; }
+  .setting-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+  .segmented { display: inline-flex; padding: 3px; border-radius: 10px; background: var(--bg-hover); gap: 2px; flex-wrap: wrap; }
+  .segmented button {
+    border: 0;
+    background: transparent;
+    padding: 6px 12px;
+    border-radius: 8px;
+    color: var(--text-dim);
+    font-size: 14px;
+  }
+  .segmented button.active { background: var(--bg-card); color: var(--text); box-shadow: 0 1px 3px rgba(0, 0, 0, .25); }
+
+  .input, select.input {
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg-raised);
+    min-width: 0;
+  }
+  .input:focus, select.input:focus { outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent); outline-offset: 1px; }
+  .input.grow { flex: 1; }
+  .input.number { width: 110px; }
+
+  .switch { position: relative; width: 44px; height: 26px; flex: none; }
+  .switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+  .switch span { position: absolute; inset: 0; border-radius: 999px; background: var(--track); transition: background .15s; pointer-events: none; }
+  .switch span::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: transform .15s; box-shadow: 0 1px 3px rgba(0, 0, 0, .3); }
+  .switch input:checked + span { background: var(--accent); }
+  .switch input:checked + span::after { transform: translateX(18px); }
+  .switch input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .callout {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--warn) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent);
+    font-size: 13px;
+  }
+  .callout button { margin-left: auto; flex: none; }
+
+  .raw-values { font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Menlo, monospace; font-size: 13px; color: var(--text-dim); }
+
+  .btn {
+    padding: 8px 16px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg-raised);
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .btn:hover { background: var(--bg-hover); }
+  .btn.primary { background: var(--accent-grad); border-color: transparent; color: #fff; }
+  .btn.primary:hover { filter: brightness(1.08); }
+  .btn.small { padding: 4px 10px; font-size: 13px; }
+  .btn:disabled { opacity: .6; cursor: default; }
+
+  .savebar {
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 10px 10px 18px;
+    border-radius: 14px;
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    transform: translate(-50%, 140%);
+    visibility: hidden;
+    transition: transform .2s ease, visibility 0s .2s;
+  }
+  .savebar.visible { transform: translate(-50%, 0); visibility: visible; transition: transform .2s ease; }
+  .savebar-text { color: var(--text-dim); font-size: 14px; white-space: nowrap; }
+
+  .toast {
+    position: fixed;
+    top: 76px;
+    right: 24px;
+    z-index: 40;
+    max-width: 380px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    font-size: 14px;
+    opacity: 0;
+    transform: translateY(-8px);
+    transition: opacity .2s, transform .2s;
+    pointer-events: none;
+  }
+  .toast.visible { opacity: 1; transform: none; }
+  .toast.error { border-color: color-mix(in srgb, var(--bad) 60%, transparent); }
+
+  .picker-backdrop { position: fixed; inset: 0; z-index: 30; }
+
+  .picker {
+    position: fixed;
+    z-index: 31;
+    width: 340px;
+    max-width: calc(100vw - 24px);
+    max-height: min(480px, calc(100vh - 24px));
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .picker-search { padding: 10px; border-bottom: 1px solid var(--border); }
+  .picker-search .input { width: 100%; }
+  .picker-list { overflow-y: auto; padding: 6px; }
+  .picker-group { padding: 10px 10px 4px; color: var(--text-faint); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+  .picker-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    text-align: left;
+  }
+  .picker-item:hover, .picker-item.highlight { background: var(--bg-hover); }
+  .picker-item:disabled { opacity: .45; cursor: default; }
+  .picker-item .chip-icon { color: var(--accent); }
+  .picker-empty { padding: 16px; color: var(--text-faint); font-size: 14px; text-align: center; }
+
+  .offline {
+    display: none;
+    margin: 0 0 20px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--bad) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--bad) 40%, transparent);
+  }
+  body.is-offline .offline { display: block; }
+
+  footer { color: var(--text-faint); font-size: 13px; margin-top: 32px; display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .92em; background: var(--bg-hover); padding: 1px 5px; border-radius: 5px; }
+
+  @media (max-width: 640px) {
+    .topbar { padding: 12px 16px; }
+    main { padding: 20px 16px 120px; }
+    .brand-sub { display: none; }
+    .settings { grid-template-columns: 1fr; }
+    .slider-card { min-height: 0; }
+    .add-slider-card { min-height: 96px; }
+    .meter { height: 96px; }
+  }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <svg viewBox="0 0 64 64" aria-hidden="true">
+      <defs><linearGradient id="logo-grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5b8cff"/><stop offset="1" stop-color="#a35bff"/></linearGradient></defs>
+      <rect width="64" height="64" rx="16" fill="url(#logo-grad)"/>
+      <g stroke="#fff" stroke-width="4" stroke-linecap="round" opacity=".9"><path d="M20 14v36M32 14v36M44 14v36"/></g>
+      <g fill="#fff"><circle cx="20" cy="38" r="6"/><circle cx="32" cy="24" r="6"/><circle cx="44" cy="32" r="6"/></g>
+    </svg>
+    <span class="brand-name">deej</span>
+    <span class="brand-sub">slider editor</span>
+  </div>
+  <div id="connection" class="pill"><span class="dot"></span><span>Connecting…</span></div>
+</header>
+
+<main>
+  <div class="offline">deej isn't running (or can't be reached). Start it again, then reopen the slider editor from its tray menu.</div>
+
+  <div class="section-head">
+    <h2>Sliders</h2>
+    <p>Pick what each slider controls. Meters move with your hardware, so you can see which slider is which.</p>
+  </div>
+  <div id="sliders" class="slider-grid"></div>
+
+  <div class="section-head">
+    <h2>Board &amp; settings</h2>
+  </div>
+  <div class="settings">
+    <div class="card setting">
+      <div class="setting-label">Board</div>
+      <div id="board-type" class="segmented" role="group" aria-label="Board type">
+        <button data-board="1023">Arduino · 10-bit</button>
+        <button data-board="4095">ESP32 · 12-bit</button>
+        <button data-board="custom">Custom</button>
+      </div>
+      <div id="custom-max-row" class="setting-row" hidden>
+        <label class="setting-hint" for="max-value">Highest value a slider sends</label>
+        <input id="max-value" class="input number" type="number" min="1" max="99999">
+      </div>
+      <div id="range-callout" class="callout" hidden></div>
+      <div class="setting-hint">Live from board: <span id="raw-values" class="raw-values">–</span></div>
+    </div>
+
+    <div class="card setting">
+      <label class="setting-label" for="port-select">Serial port</label>
+      <div class="setting-row">
+        <select id="port-select" class="input grow"></select>
+        <button id="refresh-ports" class="icon-btn" title="Look for boards again" aria-label="Look for boards again"></button>
+      </div>
+      <input id="port-custom" class="input" placeholder="e.g. /dev/ttyUSB0 or COM4" hidden>
+      <div class="setting-row">
+        <label class="setting-label" for="baud-select">Baud rate</label>
+        <select id="baud-select" class="input"></select>
+      </div>
+      <div class="setting-hint">Must match the <code>Serial.begin()</code> call in your board's sketch. The ESP32 sketch that comes with deej uses 115200.</div>
+    </div>
+
+    <div class="card setting">
+      <div class="setting-label">Noise reduction</div>
+      <div id="noise" class="segmented" role="group" aria-label="Noise reduction">
+        <button data-noise="low">Low</button>
+        <button data-noise="default">Default</button>
+        <button data-noise="high">High</button>
+      </div>
+      <div class="setting-hint">Raise this if volumes jitter while you're not touching the sliders (common with ESP32 boards).</div>
+      <div class="setting-row" style="margin-top: 8px">
+        <label class="switch"><input id="invert" type="checkbox"><span></span></label>
+        <label for="invert">Invert sliders <span class="setting-hint">(top is 0%, bottom is 100%)</span></label>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <span>Changes are saved to <code>config.yaml</code> and applied right away.</span>
+    <span id="version"></span>
+  </footer>
+</main>
+
+<div id="savebar" class="savebar" role="status">
+  <span class="savebar-text">You have unsaved changes</span>
+  <button id="discard" class="btn">Discard</button>
+  <button id="save" class="btn primary">Save</button>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script>
+"use strict";
+
+// ---------- icons (static markup only) ----------
+
+const ICONS = {
+  speaker: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></svg>',
+  mic: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5"/></svg>',
+  bell: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>',
+  focus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/></svg>',
+  layers: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 10 5-10 5L2 7l10-5z"/><path d="m2 17 10 5 10-5M2 12l10 5 10-5"/></svg>',
+  app: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 9h18"/></svg>',
+  device: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>',
+  plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+  trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>',
+  refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>',
+  custom: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+};
+
+const SPECIAL_TARGETS = [
+  { key: "master", label: "Master volume", hint: "Your default output device", icon: "speaker" },
+  { key: "mic", label: "Microphone", hint: "Your default input device", icon: "mic" },
+  { key: "system", label: "System sounds", hint: "Notification and alert sounds", icon: "bell" },
+  { key: "deej.current", label: "Focused app", hint: "Whichever app you're using right now", icon: "focus" },
+  { key: "deej.unmapped", label: "Everything else", hint: "All apps not bound to another slider", icon: "layers" },
+];
+
+const BAUD_RATES = [9600, 19200, 38400, 57600, 115200, 230400, 250000, 500000, 921600];
+const AUTO_PORT = "auto";
+
+// ---------- state ----------
+
+const state = {
+  saved: null,        // config as last loaded from / saved to deej
+  draft: null,        // config being edited
+  serial: { connected: false, port: "", receiving: false, values: [], rawValues: [] },
+  targets: { apps: [], devices: [] },
+  ports: [],
+  focused: [],
+  focusError: "",
+  addedSliders: 0,    // empty sliders added by hand that aren't mapped (or detected) yet
+  customPort: false,  // whether the serial port is being typed in by hand
+  customMax: false,   // whether the slider max value is being typed in by hand
+  online: true,
+};
+
+// ---------- helpers ----------
+
+function h(tag, props, ...children) {
+  const el = document.createElement(tag);
+  for (const [key, value] of Object.entries(props || {})) {
+    if (value === undefined || value === null || value === false) continue;
+    if (key === "class") el.className = value;
+    else if (key === "dataset") Object.assign(el.dataset, value);
+    else if (key.startsWith("on")) el.addEventListener(key.slice(2), value);
+    else if (key === "icon") el.innerHTML = ICONS[value]; // static markup from ICONS only
+    else el.setAttribute(key, value === true ? "" : value);
+  }
+  for (const child of children.flat()) {
+    if (child === null || child === undefined || child === false) continue;
+    el.append(child instanceof Node ? child : document.createTextNode(String(child)));
+  }
+  return el;
+}
+
+function icon(name, cls = "chip-icon") {
+  return h("span", { class: cls, icon: name, "aria-hidden": "true" });
+}
+
+async function api(path, options = {}) {
+  const headers = { "X-Deej-Editor": "1" };
+  if (options.body) headers["Content-Type"] = "application/json";
+  const response = await fetch(path, { ...options, headers });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || response.statusText);
+  return data;
+}
+
+const clone = (value) => JSON.parse(JSON.stringify(value));
+
+function normalized(config) {
+  if (!config) return "";
+  const mapping = {};
+  for (const index of Object.keys(config.sliderMapping).map(Number).sort((a, b) => a - b)) {
+    const targets = config.sliderMapping[index].filter(Boolean);
+    if (targets.length) mapping[index] = targets;
+  }
+  return JSON.stringify({ ...config, sliderMapping: mapping });
+}
+
+const isDirty = () => normalized(state.draft) !== normalized(state.saved);
+const lower = (s) => s.toLowerCase();
+
+let toastTimer;
+function toast(message, isError = false) {
+  const el = document.getElementById("toast");
+  el.textContent = message;
+  el.classList.toggle("error", isError);
+  el.classList.add("visible");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove("visible"), isError ? 6000 : 3000);
+}
+
+// describes a target for display: its label, a detail line, an icon, and whether it's currently present
+function describeTarget(target) {
+  const key = lower(target);
+  const special = SPECIAL_TARGETS.find((s) => s.key === key);
+
+  if (special) {
+    let detail = special.hint;
+    if (key === "deej.current") {
+      if (state.focusError) detail = state.focusError;
+      else if (state.focused.length) detail = "Now: " + state.focused.slice(0, 3).join(", ");
+    }
+    return { label: special.label, detail, icon: special.icon, active: true };
+  }
+
+  const device = state.targets.devices.find((d) => lower(d) === key);
+  if (device) return { label: device, detail: "Audio device", icon: "device", active: true };
+
+  const app = state.targets.apps.find((a) => lower(a) === key);
+  if (app) return { label: app, detail: "Playing audio", icon: "app", active: true };
+
+  return { label: target, detail: "Not playing right now", icon: "app", active: false };
+}
+
+function sliderCount() {
+  const mapped = Object.keys(state.draft.sliderMapping).map(Number);
+  const highestMapped = mapped.length ? Math.max(...mapped) + 1 : 0;
+  return Math.max(highestMapped, state.serial.values.length, 1) + state.addedSliders;
+}
+
+// ---------- rendering ----------
+
+function renderSliders() {
+  const grid = document.getElementById("sliders");
+  grid.replaceChildren();
+
+  const count = sliderCount();
+  for (let index = 0; index < count; index++) {
+    const targets = state.draft.sliderMapping[index] || [];
+
+    const chips = targets.map((target) => {
+      const info = describeTarget(target);
+      return h("div", { class: "chip" + (info.active ? "" : " inactive"), title: target },
+        icon(info.icon),
+        h("div", { class: "chip-text" },
+          h("span", { class: "chip-label" }, info.label),
+          h("span", { class: "chip-detail" }, info.detail)),
+        h("button", {
+          class: "icon-btn", icon: "close", title: "Remove", "aria-label": "Remove " + info.label,
+          onclick: () => removeTarget(index, target),
+        }));
+    });
+
+    const isLast = index === count - 1;
+    const canRemoveCard = isLast && targets.length === 0 && index >= state.serial.values.length && count > 1;
+
+    grid.append(h("div", { class: "card slider-card", dataset: { index } },
+      h("div", { class: "slider-head" },
+        h("div", {},
+          h("div", { class: "slider-title" }, "Slider " + (index + 1)),
+          h("div", { class: "slider-index" }, "index " + index + " in config.yaml")),
+        targets.length
+          ? h("button", { class: "icon-btn", icon: "trash", title: "Clear this slider", "aria-label": "Clear slider " + (index + 1), onclick: () => clearSlider(index) })
+          : canRemoveCard
+            ? h("button", { class: "icon-btn", icon: "close", title: "Remove this slider", "aria-label": "Remove slider " + (index + 1), onclick: () => { state.addedSliders = Math.max(0, state.addedSliders - 1); render(); } })
+            : null),
+      h("div", { class: "meter-row" },
+        h("div", { class: "meter idle" },
+          h("div", { class: "meter-fill" }),
+          h("div", { class: "meter-knob" })),
+        h("div", { class: "meter-readout" },
+          h("div", { class: "meter-value" }, "–"),
+          h("div", { class: "meter-raw" }, "no signal"))),
+      h("div", { class: "targets" },
+        chips.length ? chips : h("div", { class: "empty-targets" }, "Not controlling anything yet")),
+      h("button", { class: "add-btn", onclick: (event) => openPicker(index, event.currentTarget) },
+        icon("plus", ""), "Add app or device")));
+  }
+
+  grid.append(h("button", { class: "add-slider-card", onclick: () => { state.addedSliders++; render(); } },
+    h("span", {}, icon("plus", ""), "Add slider")));
+
+  updateMeters();
+}
+
+function updateMeters() {
+  const { values, rawValues, receiving } = state.serial;
+  for (const card of document.querySelectorAll(".slider-card")) {
+    const index = Number(card.dataset.index);
+    const value = values[index];
+    const hasValue = receiving && value !== undefined && value >= 0;
+    const percent = hasValue ? Math.round(value * 100) : 0;
+
+    card.querySelector(".meter").classList.toggle("idle", !hasValue);
+    card.querySelector(".meter-fill").style.height = percent + "%";
+    card.querySelector(".meter-knob").style.bottom = percent + "%";
+
+    const valueEl = card.querySelector(".meter-value");
+    if (hasValue) {
+      valueEl.replaceChildren(String(percent), h("small", {}, "%"));
+    } else {
+      valueEl.textContent = "–";
+    }
+
+    card.querySelector(".meter-raw").textContent = hasValue
+      ? "raw " + rawValues[index] + " / " + state.draft.sliderMaxValue
+      : (receiving ? "not on this board" : "no signal");
+  }
+}
+
+function renderConnection() {
+  const pill = document.getElementById("connection");
+  const { connected, receiving, port } = state.serial;
+  let dot = "bad", text;
+
+  if (!state.online) {
+    text = "deej isn't running";
+  } else if (connected && receiving) {
+    dot = "ok";
+    text = "Connected · " + port;
+  } else if (connected) {
+    dot = "warn";
+    text = "Connected to " + port + " · no data yet (check baud rate)";
+  } else {
+    dot = "warn";
+    text = "Waiting for your board…";
+  }
+
+  pill.replaceChildren(h("span", { class: "dot " + dot }), h("span", {}, text));
+  pill.title = text;
+  document.body.classList.toggle("is-offline", !state.online);
+}
+
+function renderSettings() {
+  const config = state.draft;
+
+  // board type
+  const preset = config.sliderMaxValue === 1023 ? "1023" : config.sliderMaxValue === 4095 ? "4095" : "custom";
+  for (const button of document.querySelectorAll("#board-type button")) {
+    const active = button.dataset.board === (state.customMax ? "custom" : preset);
+    button.classList.toggle("active", active);
+  }
+  document.getElementById("custom-max-row").hidden = !(preset === "custom" || state.customMax);
+  const maxInput = document.getElementById("max-value");
+  if (document.activeElement !== maxInput) maxInput.value = config.sliderMaxValue;
+
+  // serial port
+  const portSelect = document.getElementById("port-select");
+  const portCustom = document.getElementById("port-custom");
+  const known = state.ports.some((p) => p.path === config.comPort);
+  const isAuto = lower(config.comPort || "") === AUTO_PORT;
+  const showCustom = state.customPort || (!isAuto && !known);
+
+  portSelect.replaceChildren(
+    h("option", { value: AUTO_PORT }, "Auto-detect" + (state.ports.length ? " (" + state.ports[0].description + ")" : "")),
+    ...state.ports.map((p) => h("option", { value: p.path }, p.description)),
+    h("option", { value: "__custom" }, "Other…"));
+
+  portSelect.value = showCustom ? "__custom" : (isAuto ? AUTO_PORT : config.comPort);
+  portCustom.hidden = !showCustom;
+  if (document.activeElement !== portCustom) portCustom.value = showCustom && !isAuto ? config.comPort : "";
+
+  // baud rate
+  const baudSelect = document.getElementById("baud-select");
+  const rates = BAUD_RATES.includes(config.baudRate) ? BAUD_RATES : [...BAUD_RATES, config.baudRate].sort((a, b) => a - b);
+  baudSelect.replaceChildren(...rates.map((rate) => h("option", { value: rate }, rate.toLocaleString("en-US"))));
+  baudSelect.value = String(config.baudRate);
+
+  // noise & invert
+  for (const button of document.querySelectorAll("#noise button")) {
+    button.classList.toggle("active", button.dataset.noise === config.noiseReduction);
+  }
+  document.getElementById("invert").checked = config.invertSliders;
+
+  renderRangeCallout();
+}
+
+function renderRangeCallout() {
+  const callout = document.getElementById("range-callout");
+  const raw = state.serial.rawValues || [];
+  const highest = raw.length ? Math.max(...raw) : 0;
+  const max = state.draft.sliderMaxValue;
+
+  document.getElementById("raw-values").textContent = state.serial.receiving && raw.length ? raw.join(" · ") : "–";
+
+  // a board sending more than the configured max is most likely a 12-bit board (ESP32) on the arduino setting
+  if (state.serial.receiving && highest > max) {
+    const suggestion = highest <= 4095 ? 4095 : 2 ** Math.ceil(Math.log2(highest + 1)) - 1;
+    callout.hidden = false;
+    callout.replaceChildren(
+      h("span", {}, "Your board sends values up to " + highest + ", above the " + max + " deej expects" +
+        (suggestion === 4095 ? " \u2014 it's probably a 12-bit board like the ESP32." : ".")),
+      h("button", { class: "btn small", onclick: () => setMax(suggestion) }, suggestion === 4095 ? "Use ESP32" : "Use " + suggestion));
+  } else {
+    callout.hidden = true;
+  }
+}
+
+function render() {
+  renderSliders();
+  renderSettings();
+  document.getElementById("savebar").classList.toggle("visible", isDirty());
+}
+
+// ---------- editing ----------
+
+function setMapping(index, targets) {
+  if (targets.length) state.draft.sliderMapping[index] = targets;
+  else delete state.draft.sliderMapping[index];
+  render();
+}
+
+function addTarget(index, target) {
+  const targets = state.draft.sliderMapping[index] || [];
+  if (targets.some((t) => lower(t) === lower(target))) return;
+  setMapping(index, [...targets, target]);
+}
+
+function removeTarget(index, target) {
+  setMapping(index, (state.draft.sliderMapping[index] || []).filter((t) => t !== target));
+}
+
+function clearSlider(index) {
+  setMapping(index, []);
+}
+
+function setMax(value) {
+  state.customMax = false;
+  state.draft.sliderMaxValue = value;
+  render();
+}
+
+// ---------- target picker ----------
+
+let picker = null;
+
+function closePicker() {
+  if (!picker) return;
+  picker.backdrop.remove();
+  picker.panel.remove();
+  picker.anchor.focus();
+  picker = null;
+}
+
+function openPicker(index, anchor) {
+  closePicker();
+
+  const search = h("input", { class: "input", placeholder: "Search, or type an app's process name…", "aria-label": "Search apps and devices" });
+  const list = h("div", { class: "picker-list", role: "listbox" });
+  const panel = h("div", { class: "picker", role: "dialog", "aria-label": "Add to slider " + (index + 1) },
+    h("div", { class: "picker-search" }, search), list);
+  const backdrop = h("div", { class: "picker-backdrop", onclick: closePicker });
+
+  picker = { index, anchor, panel, backdrop, search, list, highlighted: 0 };
+  document.body.append(backdrop, panel);
+
+  // place it next to the button that opened it, keeping it on screen
+  const rect = anchor.getBoundingClientRect();
+  const width = Math.min(340, window.innerWidth - 24);
+  panel.style.left = Math.max(12, Math.min(rect.left, window.innerWidth - width - 12)) + "px";
+  const below = window.innerHeight - rect.bottom;
+  if (below > 300 || below > rect.top) panel.style.top = (rect.bottom + 6) + "px";
+  else panel.style.bottom = (window.innerHeight - rect.top + 6) + "px";
+
+  search.addEventListener("input", () => { picker.highlighted = 0; renderPickerList(); });
+  search.addEventListener("keydown", onPickerKey);
+  panel.addEventListener("keydown", (event) => { if (event.key === "Escape") closePicker(); });
+
+  renderPickerList();
+  search.focus();
+}
+
+function pickerOptions() {
+  const query = lower(picker.search.value.trim());
+  const existing = (state.draft.sliderMapping[picker.index] || []).map(lower);
+  const matches = (...texts) => !query || texts.some((t) => lower(t).includes(query));
+  const groups = [];
+
+  const special = SPECIAL_TARGETS.filter((s) => matches(s.key, s.label, s.hint))
+    .map((s) => ({ value: s.key, label: s.label, detail: s.hint, icon: s.icon }));
+  if (special.length) groups.push({ title: "Special", items: special });
+
+  const apps = state.targets.apps.filter((a) => matches(a)).map((a) => ({ value: a, label: a, detail: "Playing audio", icon: "app" }));
+  if (apps.length) groups.push({ title: "Apps playing audio", items: apps });
+
+  const devices = state.targets.devices.filter((d) => matches(d)).map((d) => ({ value: d, label: d, detail: "Audio device", icon: "device" }));
+  if (devices.length) groups.push({ title: "Devices", items: devices });
+
+  const typed = picker.search.value.trim();
+  const exact = groups.some((g) => g.items.some((i) => lower(i.value) === lower(typed)));
+  if (typed && !exact) {
+    groups.push({ title: "Other", items: [{ value: typed, label: "Add “" + typed + "”", detail: "For apps that aren't playing audio right now", icon: "custom" }] });
+  }
+
+  for (const group of groups) {
+    for (const item of group.items) item.disabled = existing.includes(lower(item.value));
+  }
+
+  return groups;
+}
+
+function renderPickerList() {
+  const groups = pickerOptions();
+  picker.items = groups.flatMap((g) => g.items).filter((i) => !i.disabled);
+  picker.highlighted = Math.min(picker.highlighted, Math.max(0, picker.items.length - 1));
+
+  picker.list.replaceChildren();
+  if (!groups.length) {
+    picker.list.append(h("div", { class: "picker-empty" }, "Nothing found"));
+    return;
+  }
+
+  for (const group of groups) {
+    picker.list.append(h("div", { class: "picker-group" }, group.title));
+    for (const item of group.items) {
+      const highlighted = !item.disabled && picker.items[picker.highlighted] === item;
+      picker.list.append(h("button", {
+        class: "picker-item" + (highlighted ? " highlight" : ""), role: "option", disabled: item.disabled,
+        onclick: () => choose(item),
+      },
+        icon(item.icon),
+        h("span", { class: "chip-text" },
+          h("span", { class: "chip-label" }, item.label),
+          h("span", { class: "chip-detail" }, item.disabled ? "Already on this slider" : item.detail))));
+    }
+  }
+
+  picker.list.querySelector(".highlight")?.scrollIntoView({ block: "nearest" });
+}
+
+function onPickerKey(event) {
+  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    event.preventDefault();
+    const step = event.key === "ArrowDown" ? 1 : -1;
+    picker.highlighted = (picker.highlighted + step + picker.items.length) % Math.max(1, picker.items.length);
+    renderPickerList();
+  } else if (event.key === "Enter") {
+    event.preventDefault();
+    const item = picker.items[picker.highlighted];
+    if (item) choose(item);
+  }
+}
+
+function choose(item) {
+  const index = picker.index;
+  closePicker();
+  addTarget(index, item.value);
+}
+
+// ---------- settings wiring ----------
+
+document.getElementById("refresh-ports").innerHTML = ICONS.refresh;
+
+document.getElementById("board-type").addEventListener("click", (event) => {
+  const board = event.target.closest("button")?.dataset.board;
+  if (!board) return;
+  if (board === "custom") {
+    state.customMax = true;
+    render();
+    document.getElementById("max-value").focus();
+  } else {
+    setMax(Number(board));
+  }
+});
+
+document.getElementById("max-value").addEventListener("input", (event) => {
+  const value = parseInt(event.target.value, 10);
+  if (value > 0) {
+    state.draft.sliderMaxValue = value;
+    document.getElementById("savebar").classList.toggle("visible", isDirty());
+    updateMeters();
+  }
+});
+
+document.getElementById("port-select").addEventListener("change", (event) => {
+  if (event.target.value === "__custom") {
+    state.customPort = true;
+    render();
+    document.getElementById("port-custom").focus();
+    return;
+  }
+  state.customPort = false;
+  state.draft.comPort = event.target.value;
+  render();
+});
+
+document.getElementById("port-custom").addEventListener("input", (event) => {
+  state.draft.comPort = event.target.value;
+  document.getElementById("savebar").classList.toggle("visible", isDirty());
+});
+
+document.getElementById("refresh-ports").addEventListener("click", async () => {
+  await loadPorts();
+  toast(state.ports.length ? "Found " + state.ports.length + " serial port" + (state.ports.length > 1 ? "s" : "") : "No serial ports found");
+});
+
+document.getElementById("baud-select").addEventListener("change", (event) => {
+  state.draft.baudRate = Number(event.target.value);
+  render();
+});
+
+document.getElementById("noise").addEventListener("click", (event) => {
+  const level = event.target.closest("button")?.dataset.noise;
+  if (!level) return;
+  state.draft.noiseReduction = level;
+  render();
+});
+
+document.getElementById("invert").addEventListener("change", (event) => {
+  state.draft.invertSliders = event.target.checked;
+  render();
+});
+
+document.getElementById("discard").addEventListener("click", () => {
+  state.draft = clone(state.saved);
+  state.addedSliders = 0;
+  state.customPort = false;
+  state.customMax = false;
+  render();
+});
+
+document.getElementById("save").addEventListener("click", save);
+
+document.addEventListener("keydown", (event) => {
+  if ((event.ctrlKey || event.metaKey) && event.key === "s") {
+    event.preventDefault();
+    if (isDirty()) save();
+  }
+});
+
+window.addEventListener("beforeunload", (event) => {
+  if (isDirty()) event.preventDefault();
+});
+
+async function save() {
+  const button = document.getElementById("save");
+  button.disabled = true;
+  try {
+    await api("/api/config", { method: "POST", body: JSON.stringify(state.draft) });
+    state.saved = clone(state.draft);
+    state.addedSliders = 0;
+    state.customPort = false;
+    toast("Saved! deej picked up your changes.");
+    render();
+    // read back what deej actually loaded (it cleans things up a little)
+    setTimeout(loadConfig, 800);
+  } catch (error) {
+    toast("Couldn't save: " + error.message, true);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+// ---------- data loading ----------
+
+async function loadConfig() {
+  const config = await api("/api/config");
+  const changedOnDisk = normalized(config) !== normalized(state.saved);
+  if (!changedOnDisk) return;
+
+  const wasDirty = state.saved && isDirty();
+  state.saved = config;
+
+  // pick up edits made elsewhere (i.e. in a text editor), unless that would throw away unsaved changes here
+  if (!wasDirty) {
+    state.draft = clone(config);
+    render();
+  }
+}
+
+async function loadTargets() {
+  const targets = await api("/api/targets");
+  if (JSON.stringify(targets) === JSON.stringify(state.targets)) return;
+  state.targets = targets;
+  if (state.draft) renderSliders();
+}
+
+async function loadPorts() {
+  state.ports = await api("/api/ports");
+  if (state.draft) renderSettings();
+}
+
+function usesFocusedApp() {
+  return state.draft && Object.values(state.draft.sliderMapping).some((targets) => targets.some((t) => lower(t) === "deej.current"));
+}
+
+async function pollState() {
+  try {
+    const data = await api("/api/state" + (usesFocusedApp() ? "?focus=1" : ""));
+    const previousCount = state.serial.values.length;
+    const focusChanged = JSON.stringify(data.focused) !== JSON.stringify(state.focused) || data.focusError !== (state.focusError || undefined);
+
+    state.serial = data.serial;
+    state.focused = data.focused;
+    state.focusError = data.focusError || "";
+
+    if (!state.online) {
+      state.online = true;
+      loadConfig().catch(() => {});
+    }
+
+    document.getElementById("version").textContent = data.version || "";
+
+    if (state.draft) {
+      if (state.serial.values.length !== previousCount || focusChanged) renderSliders();
+      else updateMeters();
+      renderRangeCallout();
+    }
+  } catch (error) {
+    state.online = false;
+    state.serial = { connected: false, port: "", receiving: false, values: [], rawValues: [] };
+    if (state.draft) updateMeters();
+  }
+  renderConnection();
+}
+
+function every(ms, fn) {
+  const tick = async () => {
+    if (!document.hidden || ms >= 1000) {
+      try { await fn(); } catch (error) { /* deej may be restarting, try again next time */ }
+    }
+    setTimeout(tick, ms);
+  };
+  tick();
+}
+
+async function start() {
+  try {
+    await Promise.all([loadConfig(), loadTargets(), loadPorts()]);
+  } catch (error) {
+    state.online = false;
+    renderConnection();
+    setTimeout(start, 2000);
+    return;
+  }
+
+  render();
+  every(120, pollState);
+  every(3000, loadTargets);
+  every(4000, loadConfig);
+  every(10000, loadPorts);
+}
+
+start();
+</script>
+</body>
+</html>

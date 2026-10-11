@@ -2,12 +2,15 @@ package util
 
 import (
 	"fmt"
+	"sort"
+	"strings"
 	"syscall"
 	"time"
 	"unsafe"
 
 	"github.com/lxn/win"
 	"github.com/mitchellh/go-ps"
+	"golang.org/x/sys/windows/registry"
 )
 
 const (
@@ -93,4 +96,45 @@ func getCurrentWindowProcessNames() ([]string, error) {
 	// cache & return whichever executable names we ended up with
 	lastGetCurrentWindowResult = result
 	return result, nil
+}
+
+func findSerialPorts() ([]SerialPort, error) {
+
+	// windows keeps a list of currently present serial ports in the registry, mapping driver device names to COM ports
+	key, err := registry.OpenKey(registry.LOCAL_MACHINE, `HARDWARE\DEVICEMAP\SERIALCOMM`, registry.QUERY_VALUE)
+	if err != nil {
+		return nil, fmt.Errorf("open serial ports registry key: %w", err)
+	}
+	defer key.Close()
+
+	deviceNames, err := key.ReadValueNames(0)
+	if err != nil {
+		return nil, fmt.Errorf("read serial ports registry key: %w", err)
+	}
+
+	ports := []SerialPort{}
+
+	for _, deviceName := range deviceNames {
+		portName, _, err := key.GetStringValue(deviceName)
+		if err != nil {
+			continue
+		}
+
+		ports = append(ports, SerialPort{
+			Path:        portName,
+			Description: fmt.Sprintf("%s (%s)", portName, strings.TrimPrefix(deviceName, `\Device\`)),
+		})
+	}
+
+	// legacy motherboard serial ports (\Device\Serial0) are rarely what we want, so list USB ones first
+	sort.SliceStable(ports, func(i, j int) bool {
+		return !strings.Contains(ports[i].Description, "(Serial") && strings.Contains(ports[j].Description, "(Serial")
+	})
+
+	return ports, nil
+}
+
+// serialPortPermissionHint explains how to fix a "permission denied" error when opening a serial port
+func serialPortPermissionHint() string {
+	return "This serial port is busy, make sure to close any serial monitor or other deej instance."
 }

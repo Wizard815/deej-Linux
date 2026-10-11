@@ -25,6 +25,7 @@ type Deej struct {
 	config   *CanonicalConfig
 	serial   *SerialIO
 	sessions *sessionMap
+	editor   *sliderEditor
 
 	stopChannel chan bool
 	version     string
@@ -76,6 +77,7 @@ func NewDeej(logger *zap.SugaredLogger, verbose bool) (*Deej, error) {
 	}
 
 	d.sessions = sessions
+	d.editor = newSliderEditor(d, logger)
 
 	logger.Debug("Created deej instance")
 
@@ -96,6 +98,11 @@ func (d *Deej) Initialize() error {
 	if err := d.sessions.initialize(); err != nil {
 		d.logger.Errorw("Failed to initialize session map", "error", err)
 		return fmt.Errorf("init session map: %w", err)
+	}
+
+	// start serving the slider editor - deej is still useful without it, so carry on if that fails
+	if err := d.editor.start(); err != nil {
+		d.logger.Warnw("Failed to start slider editor", "error", err)
 	}
 
 	// decide whether to run with/without tray
@@ -146,26 +153,21 @@ func (d *Deej) run() {
 		if err := d.serial.Start(); err != nil {
 			d.logger.Warnw("Failed to start first-time serial connection", "error", err)
 
-			// If the port is busy, that's because something else is connected - notify and quit
-			if errors.Is(err, os.ErrPermission) {
-				d.logger.Warnw("Serial port seems busy, notifying user and closing",
-					"comPort", d.config.ConnectionInfo.COMPort)
+			// on windows, a busy port means something else is connected (like another deej instance) - notify and quit
+			if errors.Is(err, os.ErrPermission) && !util.Linux() {
+				d.logger.Warnw("Serial port seems busy, notifying user and closing", "error", err)
 
-				d.notifier.Notify(fmt.Sprintf("Can't connect to %s!", d.config.ConnectionInfo.COMPort),
-					"This serial port is busy, make sure to close any serial monitor or other deej instance.")
-
+				d.serial.notifyConnectError(err)
 				d.signalStop()
 
-				// also notify if the COM port they gave isn't found, maybe their config is wrong
-			} else if errors.Is(err, os.ErrNotExist) {
-				d.logger.Warnw("Provided COM port seems wrong, notifying user and closing",
-					"comPort", d.config.ConnectionInfo.COMPort)
-
-				d.notifier.Notify(fmt.Sprintf("Can't connect to %s!", d.config.ConnectionInfo.COMPort),
-					"This serial port doesn't exist, check your configuration and make sure it's set correctly.")
-
-				d.signalStop()
+				return
 			}
+
+			// otherwise, let the user know what's wrong and keep running: the board may just not be plugged in yet,
+			// in which case deej connects once it is, and the config can be fixed with the slider editor in the meantime
+			d.logger.Warnw("Serial port unavailable, will keep trying in the background", "error", err)
+
+			d.serial.notifyConnectError(err)
 		}
 	}()
 
@@ -192,6 +194,7 @@ func (d *Deej) stop() error {
 
 	d.config.StopWatchingConfigFile()
 	d.serial.Stop()
+	d.editor.stop()
 
 	// release the session map
 	if err := d.sessions.release(); err != nil {

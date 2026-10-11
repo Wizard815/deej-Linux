@@ -1,8 +1,10 @@
 package deej
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -23,6 +25,8 @@ type sessionMap struct {
 
 	lastSessionRefresh time.Time
 	unmappedSessions   []Session
+
+	reportedCurrentWindowError bool
 }
 
 const (
@@ -52,6 +56,9 @@ const (
 	// to manually refresh sessions). a cleaner way to do this down the line is by registering to notifications
 	// whenever a new session is added, but that's too hard to justify for how easy this solution is
 	maxTimeBetweenSessionRefreshes = time.Second * 45
+
+	// how long to wait after the session finder reports a change before acting on it, to coalesce bursts of changes
+	sessionChangeSettleTime = time.Millisecond * 250
 )
 
 // this matches friendly device names (on Windows), e.g. "Headphones (Realtek Audio)"
@@ -79,8 +86,7 @@ func (m *sessionMap) initialize() error {
 		return fmt.Errorf("get all sessions during init: %w", err)
 	}
 
-	m.setupOnConfigReload()
-	m.setupOnSliderMove()
+	m.setupEventLoop()
 
 	return nil
 }
@@ -122,28 +128,49 @@ func (m *sessionMap) getAndAddSessions() error {
 	return nil
 }
 
-func (m *sessionMap) setupOnConfigReload() {
+// handles config reloads, slider moves and session changes on a single goroutine,
+// so that refreshing sessions doesn't race with adjusting their volumes
+func (m *sessionMap) setupEventLoop() {
 	configReloadedChannel := m.deej.config.SubscribeToChanges()
+	sliderEventsChannel := m.deej.serial.SubscribeToSliderMoveEvents()
+
+	// if our session finder can tell us when sessions come and go, listen to it (a nil channel just never fires)
+	var sessionChangesChannel <-chan struct{}
+	if notifier, ok := m.sessionFinder.(sessionChangeNotifier); ok {
+		sessionChangesChannel = notifier.SessionChanges()
+	}
 
 	go func() {
+		var pendingSessionChange <-chan time.Time
+
 		for {
 			select {
 			case <-configReloadedChannel:
 				m.logger.Info("Detected config reload, attempting to re-acquire all audio sessions")
-				m.refreshSessions(false)
-			}
-		}
-	}()
-}
 
-func (m *sessionMap) setupOnSliderMove() {
-	sliderEventsChannel := m.deej.serial.SubscribeToSliderMoveEvents()
+				// performance: the reason that forcing a refresh here is okay is that the config only reloads when the
+				// user saves it. it's also necessary, since the set of unmapped sessions depends on the new mappings
+				m.refreshSessions(true)
 
-	go func() {
-		for {
-			select {
 			case event := <-sliderEventsChannel:
 				m.handleSliderMoveEvent(event)
+
+			// let things settle for a moment, since a single change (i.e. plugging in headphones) comes with many events
+			case <-sessionChangesChannel:
+				if pendingSessionChange == nil {
+					pendingSessionChange = time.After(sessionChangeSettleTime)
+				}
+
+			case <-pendingSessionChange:
+				pendingSessionChange = nil
+				m.logger.Debug("Audio sessions or devices changed, re-acquiring sessions")
+
+				// performance: the reason that forcing a refresh here is okay is that these notifications are coalesced
+				// and only arrive when a stream starts or a device is added, removed or made default
+				m.refreshSessions(true)
+
+				// re-apply all slider values, so that new sessions (and new default devices) match their sliders right away
+				m.deej.serial.resyncSliders()
 			}
 		}
 	}()
@@ -178,14 +205,14 @@ func (m *sessionMap) sessionMapped(session Session) bool {
 	}
 
 	// count device sessions as mapped
-	if deviceSessionKeyPattern.MatchString(session.Key()) {
+	if deviceSessionKeyPattern.MatchString(session.Key()) || isDeviceSession(session) {
 		return true
 	}
 
 	matchFound := false
 
 	// look through the actual mappings
-	m.deej.config.SliderMapping.iterate(func(sliderIdx int, targets []string) {
+	m.deej.config.sliderMapping().iterate(func(sliderIdx int, targets []string) {
 		for _, target := range targets {
 
 			// ignore special transforms
@@ -215,7 +242,7 @@ func (m *sessionMap) handleSliderMoveEvent(event SliderMoveEvent) {
 	}
 
 	// get the targets mapped to this slider from the config
-	targets, ok := m.deej.config.SliderMapping.get(event.SliderID)
+	targets, ok := m.deej.config.sliderMapping().get(event.SliderID)
 
 	// if slider not found in config, silently ignore
 	if !ok {
@@ -297,8 +324,9 @@ func (m *sessionMap) applyTargetTransform(specialTargetName string) []string {
 	case specialTargetCurrentWindow:
 		currentWindowProcessNames, err := util.GetCurrentWindowProcessNames()
 
-		// silently ignore errors here, as this is on deej's "hot path" (and it could just mean the user's running linux)
+		// only report errors once, as this is on deej's "hot path"
 		if err != nil {
+			m.reportCurrentWindowError(err)
 			return nil
 		}
 
@@ -321,6 +349,21 @@ func (m *sessionMap) applyTargetTransform(specialTargetName string) []string {
 	}
 
 	return nil
+}
+
+func (m *sessionMap) reportCurrentWindowError(err error) {
+	if m.reportedCurrentWindowError {
+		return
+	}
+
+	m.reportedCurrentWindowError = true
+	m.logger.Warnw("Failed to get the focused window's process, deej.current won't work for now", "error", err)
+
+	// some desktops need a bit of setup for this to work, so let the user know what to do
+	var setupErr *util.FocusSetupError
+	if errors.As(err, &setupErr) {
+		m.deej.notifier.Notify("Can't see which app is focused", setupErr.Message)
+	}
 }
 
 func (m *sessionMap) add(value Session) {
@@ -360,6 +403,59 @@ func (m *sessionMap) clear() {
 	}
 
 	m.logger.Debug("Session map cleared")
+}
+
+// sessionTargets lists the names that can currently be bound to sliders, grouped for display in the slider editor
+type sessionTargets struct {
+	Apps    []string `json:"apps"`
+	Devices []string `json:"devices"`
+}
+
+func (m *sessionMap) availableTargets() sessionTargets {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
+	apps := map[string]string{}
+	devices := map[string]string{}
+
+	for key, sessions := range m.m {
+
+		// these are always offered by the editor, regardless of whether they're currently present
+		if funk.ContainsString([]string{masterSessionName, systemSessionName, inputSessionName}, key) {
+			continue
+		}
+
+		for _, session := range sessions {
+			name := key
+			if info, ok := session.(sessionInfo); ok {
+				name = info.friendlyName()
+			}
+
+			if isDeviceSession(session) {
+				devices[key] = name
+			} else {
+				apps[key] = name
+			}
+		}
+	}
+
+	return sessionTargets{
+		Apps:    sortedNames(apps),
+		Devices: sortedNames(devices),
+	}
+}
+
+func sortedNames(names map[string]string) []string {
+	result := make([]string, 0, len(names))
+	for _, name := range names {
+		result = append(result, name)
+	}
+
+	sort.Slice(result, func(i, j int) bool {
+		return strings.ToLower(result[i]) < strings.ToLower(result[j])
+	})
+
+	return result
 }
 
 func (m *sessionMap) String() string {

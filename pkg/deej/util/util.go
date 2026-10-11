@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"os/signal"
 	"runtime"
+	"strings"
+	"sync"
 	"syscall"
 
 	"go.uber.org/zap"
@@ -39,7 +41,7 @@ func Linux() bool {
 // SetupCloseHandler creates a 'listener' on a new goroutine which will notify the
 // program if it receives an interrupt from the OS
 func SetupCloseHandler() chan os.Signal {
-	c := make(chan os.Signal)
+	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 
 	return c
@@ -47,9 +49,56 @@ func SetupCloseHandler() chan os.Signal {
 
 // GetCurrentWindowProcessNames returns the process names (including extension, if applicable)
 // of the current foreground window. This includes child processes belonging to the window.
-// This is currently only implemented for Windows
+// On Linux, this supports X11 (and XWayland), Hyprland, Sway, niri, KDE Plasma and GNOME (with an extension)
 func GetCurrentWindowProcessNames() ([]string, error) {
-	return getCurrentWindowProcessNames()
+	currentWindowLock.Lock()
+	defer currentWindowLock.Unlock()
+
+	names, err := getCurrentWindowProcessNames()
+
+	// hand out a copy, since the result is cached and callers are free to modify what they get
+	if names != nil {
+		names = append([]string{}, names...)
+	}
+
+	return names, err
+}
+
+// FocusSetupError means that the focused window can't be found until the user installs or enables something
+type FocusSetupError struct {
+	Message string
+}
+
+func (e *FocusSetupError) Error() string {
+	return e.Message
+}
+
+// guards the cached state kept by getCurrentWindowProcessNames, since both the session map and the slider editor use it
+var currentWindowLock sync.Mutex
+
+// SerialPort describes a serial port that might have a deej board connected to it
+type SerialPort struct {
+	Path        string `json:"path"`
+	Description string `json:"description"`
+}
+
+// AutoSerialPort is the special com_port value that makes deej pick the first likely serial port on its own
+const AutoSerialPort = "auto"
+
+// IsAutoSerialPort returns true if the given port name asks for automatic serial port detection
+func IsAutoSerialPort(port string) bool {
+	port = strings.TrimSpace(port)
+	return port == "" || strings.EqualFold(port, AutoSerialPort)
+}
+
+// FindSerialPorts lists the serial ports currently present, most likely deej boards first
+func FindSerialPorts() ([]SerialPort, error) {
+	return findSerialPorts()
+}
+
+// SerialPortPermissionHint explains how to fix a "permission denied" error when opening a serial port
+func SerialPortPermissionHint() string {
+	return serialPortPermissionHint()
 }
 
 // OpenExternal spawns a detached window with the provided command and argument
@@ -71,6 +120,51 @@ func OpenExternal(logger *zap.SugaredLogger, cmd string, arg string) error {
 
 		return fmt.Errorf("spawn detached proc: %w", err)
 	}
+
+	return nil
+}
+
+// OpenURL opens the given URL in the default browser, without waiting for it to close
+func OpenURL(logger *zap.SugaredLogger, url string) error {
+	command := exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+	if Linux() {
+		command = exec.Command("xdg-open", url)
+	}
+
+	return startDetached(logger, command)
+}
+
+// OpenInTextEditor opens the given file for editing: with notepad on windows, or with the default application
+// for its type on linux (falling back to a few common text editors). This blocks for a short while on linux
+func OpenInTextEditor(logger *zap.SugaredLogger, path string) error {
+	if !Linux() {
+		return OpenExternal(logger, "notepad.exe", path)
+	}
+
+	// xdg-open returns as soon as it launched the right application, and fails if there's none to launch
+	if err := exec.Command("xdg-open", path).Run(); err == nil {
+		return nil
+	} else {
+		logger.Debugw("Failed to open file with xdg-open, looking for a text editor", "path", path, "error", err)
+	}
+
+	for _, editor := range []string{"gnome-text-editor", "gedit", "kate", "kwrite", "mousepad", "xed", "pluma", "featherpad"} {
+		if _, err := exec.LookPath(editor); err == nil {
+			return startDetached(logger, exec.Command(editor, path))
+		}
+	}
+
+	return fmt.Errorf("no text editor found to open %s", path)
+}
+
+func startDetached(logger *zap.SugaredLogger, command *exec.Cmd) error {
+	if err := command.Start(); err != nil {
+		logger.Warnw("Failed to spawn detached process", "command", command.Args, "error", err)
+		return fmt.Errorf("spawn detached proc: %w", err)
+	}
+
+	// reap the process once it exits, so it doesn't linger around as a zombie
+	go command.Wait()
 
 	return nil
 }

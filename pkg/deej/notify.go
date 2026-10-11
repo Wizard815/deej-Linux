@@ -34,8 +34,9 @@ func NewToastNotifier(logger *zap.SugaredLogger) (*ToastNotifier, error) {
 // Notify sends a toast notification (or falls back to other types of notification for older Windows versions)
 func (tn *ToastNotifier) Notify(title string, message string) {
 
-	// we need to unpack deej.ico somewhere to remain portable. we already have it as bytes so it should be fine
-	appIconPath := filepath.Join(os.TempDir(), "deej.ico")
+	// we need to unpack the deej icon somewhere to remain portable. we already have it as bytes so it should be fine
+	// (that's deej.ico on windows, and deej.png on linux where notification daemons don't reliably support ico files)
+	appIconPath := filepath.Join(os.TempDir(), "deej"+icon.NotificationLogoExtension)
 
 	if !util.FileExists(appIconPath) {
 		tn.logger.Debugw("Deej icon file missing, creating", "path", appIconPath)
@@ -45,7 +46,7 @@ func (tn *ToastNotifier) Notify(title string, message string) {
 			tn.logger.Errorw("Failed to create toast notification icon", "error", err)
 		}
 
-		if _, err = f.Write(icon.DeejLogo); err != nil {
+		if _, err = f.Write(icon.NotificationLogo); err != nil {
 			tn.logger.Errorw("Failed to write toast notification icon", "error", err)
 		}
 

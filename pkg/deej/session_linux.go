@@ -41,6 +41,7 @@ func newPASession(
 	sinkInputIndex uint32,
 	sinkInputChannels byte,
 	processName string,
+	system bool,
 ) *paSession {
 
 	s := &paSession{
@@ -50,8 +51,16 @@ func newPASession(
 	}
 
 	s.processName = processName
-	s.name = processName
-	s.humanReadableDesc = processName
+
+	// event sounds (notifications, alerts, etc.) are treated like the windows "system sounds" session
+	if system {
+		s.system = true
+		s.name = systemSessionName
+		s.humanReadableDesc = fmt.Sprintf("system sounds (%s)", processName)
+	} else {
+		s.name = processName
+		s.humanReadableDesc = processName
+	}
 
 	// use a self-identifying session name e.g. deej.sessions.chrome
 	s.logger = logger.Named(s.Key())
@@ -66,6 +75,8 @@ func newMasterSession(
 	streamIndex uint32,
 	streamChannels byte,
 	isOutput bool,
+	key string,
+	loggerKey string,
 ) *masterSession {
 
 	s := &masterSession{
@@ -75,15 +86,7 @@ func newMasterSession(
 		isOutput:       isOutput,
 	}
 
-	var key string
-
-	if isOutput {
-		key = masterSessionName
-	} else {
-		key = inputSessionName
-	}
-
-	s.logger = logger.Named(key)
+	s.logger = logger.Named(loggerKey)
 	s.master = true
 	s.name = key
 	s.humanReadableDesc = key

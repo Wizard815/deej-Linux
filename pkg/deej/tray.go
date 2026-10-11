@@ -1,7 +1,7 @@
 package deej
 
 import (
-	"github.com/getlantern/systray"
+	"fyne.io/systray"
 
 	"github.com/omriharel/deej/pkg/deej/icon"
 	"github.com/omriharel/deej/pkg/deej/util"
@@ -13,15 +13,18 @@ func (d *Deej) initializeTray(onDone func()) {
 	onReady := func() {
 		logger.Debug("Tray instance ready")
 
-		systray.SetTemplateIcon(icon.DeejLogo, icon.DeejLogo)
+		systray.SetTemplateIcon(icon.TrayLogo, icon.TrayLogo)
 		systray.SetTitle("deej")
 		systray.SetTooltip("deej")
 
-		editConfig := systray.AddMenuItem("Edit configuration", "Open config file with notepad")
-		editConfig.SetIcon(icon.EditConfig)
+		openEditor := systray.AddMenuItem("Open slider editor", "Map apps and devices to your sliders")
+		openEditor.SetIcon(icon.TrayLogo)
+
+		editConfig := systray.AddMenuItem("Edit configuration", "Open config file with a text editor")
+		editConfig.SetIcon(icon.TrayEditConfig)
 
 		refreshSessions := systray.AddMenuItem("Re-scan audio sessions", "Manually refresh audio sessions if something's stuck")
-		refreshSessions.SetIcon(icon.RefreshSessions)
+		refreshSessions.SetIcon(icon.TrayRefreshSessions)
 
 		if d.version != "" {
 			systray.AddSeparator()
@@ -43,18 +46,24 @@ func (d *Deej) initializeTray(onDone func()) {
 
 					d.signalStop()
 
+				// open slider editor
+				case <-openEditor.ClickedCh:
+					logger.Info("Open slider editor menu item clicked, opening it in the browser")
+
+					d.editor.open()
+
 				// edit config
 				case <-editConfig.ClickedCh:
 					logger.Info("Edit config menu item clicked, opening config for editing")
 
-					editor := "notepad.exe"
-					if util.Linux() {
-						editor = "gedit"
-					}
-
-					if err := util.OpenExternal(logger, editor, userConfigFilepath); err != nil {
-						logger.Warnw("Failed to open config file for editing", "error", err)
-					}
+					// this may take a moment on linux, and shouldn't hold up the rest of the menu
+					go func() {
+						if err := util.OpenInTextEditor(logger, userConfigFilepath); err != nil {
+							logger.Warnw("Failed to open config file for editing", "error", err)
+							d.notifier.Notify("Can't open the config file",
+								"No text editor found. Try the slider editor instead.")
+						}
+					}()
 
 				// refresh sessions
 				case <-refreshSessions.ClickedCh:

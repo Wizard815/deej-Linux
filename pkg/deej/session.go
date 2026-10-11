@@ -52,3 +52,25 @@ func (s *baseSession) Key() string {
 
 	return strings.ToLower(s.name)
 }
+
+// isDevice returns true for sessions that control an entire audio device (master, mic or a device bound by name)
+// rather than a single app. these never count as "unmapped"
+func (s *baseSession) isDevice() bool {
+	return s.master
+}
+
+// friendlyName returns the session's name before it's lowercased (i.e. "Discord" instead of "discord")
+func (s *baseSession) friendlyName() string {
+	return s.name
+}
+
+// sessionInfo is implemented by all sessions through baseSession
+type sessionInfo interface {
+	isDevice() bool
+	friendlyName() string
+}
+
+func isDeviceSession(session Session) bool {
+	info, ok := session.(sessionInfo)
+	return ok && info.isDevice()
+}
